@@ -64,11 +64,35 @@ def launch_setup(context, *args, **kwargs):
         parameters=[load_composable_node_param("random_downsample_filter_param_path")],
         extra_arguments=[{"use_intra_process_comms": LaunchConfiguration("use_intra_process")}],
     )
+    random_downsample_750_component = ComposableNode(
+        package="pointcloud_preprocessor",
+        plugin="pointcloud_preprocessor::RandomDownsampleFilterComponent",
+        name="random_downsample_filter_750",
+        remappings=[
+            ("input", "voxel_grid_downsample/pointcloud"),
+            ("output", "pointcloud_750"),
+        ],
+        parameters=[load_composable_node_param("random_downsample_filter_750_param_path")],
+        extra_arguments=[{"use_intra_process_comms": LaunchConfiguration("use_intra_process")}],
+    )
+    random_downsample_1125_component = ComposableNode(
+        package="pointcloud_preprocessor",
+        plugin="pointcloud_preprocessor::RandomDownsampleFilterComponent",
+        name="random_downsample_filter_1125",
+        remappings=[
+            ("input", "voxel_grid_downsample/pointcloud"),
+            ("output", "pointcloud_1125"),            
+        ],
+        parameters=[load_composable_node_param("random_downsample_filter_1125_param_path")],
+        extra_arguments=[{"use_intra_process_comms": LaunchConfiguration("use_intra_process")}],
+    )
 
     composable_nodes = [
         crop_box_component,
         voxel_grid_downsample_component,
         random_downsample_component,
+        random_downsample_750_component,
+        random_downsample_1125_component
     ]
 
     target_container = (
@@ -114,6 +138,20 @@ def generate_launch_description():
         ],
         "path to the parameter file of random_downsample_filter",
     )
+    add_launch_arg(
+        "random_downsample_filter_750_param_path",
+        [
+            LaunchConfiguration("random_downsample_filter_750_param_path"),
+        ],
+        "path to the parameter file of random_downsample_filter",
+    )
+    add_launch_arg(
+        "random_downsample_filter_1125_param_path",
+        [
+            LaunchConfiguration("random_downsample_filter_1125_param_path"),
+        ],
+        "path to the parameter file of random_downsample_filter",
+    )
     add_launch_arg("use_intra_process", "true", "use ROS2 component container communication")
     add_launch_arg("use_pointcloud_container", "True", "use pointcloud container")
     add_launch_arg(
@@ -122,6 +160,16 @@ def generate_launch_description():
         "container name",
     )
 
+    add_launch_arg(
+      "output/pointcloud_750",
+      "downsample/pointcloud_750",
+      "final output topic name",
+    )
+    add_launch_arg(
+      "output/pointcloud_1125",
+      "downsample/pointcloud_1125",
+      "final output topic name",
+    )
     add_launch_arg(
         "output/pointcloud",
         "downsample/pointcloud",
