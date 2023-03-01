@@ -108,6 +108,10 @@ private:
   void publish_point_cloud(
     const rclcpp::Time & sensor_ros_time, const std::string & frame_id,
     const pcl::shared_ptr<pcl::PointCloud<PointSource>> & sensor_points_mapTF_ptr);
+  void publish_random_point_cloud(
+    const rclcpp::Time & sensor_ros_time, const std::string & frame_id,
+    const pcl::shared_ptr<pcl::PointCloud<PointSource>> & sensor_points_mapTF_ptr, 
+    const std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>> random_point_cloud_pub);
   void publish_marker(
     const rclcpp::Time & sensor_ros_time, const std::vector<geometry_msgs::msg::Pose> & pose_array);
   void publish_initial_to_result_distances(
@@ -135,6 +139,8 @@ private:
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr sensor_aligned_pose_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr no_ground_points_aligned_pose_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr random_750_points_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr random_1125_points_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr ndt_pose_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
     ndt_pose_with_covariance_pub_;

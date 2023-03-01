@@ -179,6 +179,10 @@ NDTScanMatcher::NDTScanMatcher()
     this->create_publisher<sensor_msgs::msg::PointCloud2>("points_aligned", 10);
   no_ground_points_aligned_pose_pub_ =
     this->create_publisher<sensor_msgs::msg::PointCloud2>("points_aligned_no_ground", 10);
+  random_750_points_pub_ =
+    this->create_publisher<sensor_msgs::msg::PointCloud2>("random_750_points", 10);
+  random_1125_points_pub_ =
+    this->create_publisher<sensor_msgs::msg::PointCloud2>("random_1125_points", 10);
   ndt_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("ndt_pose", 10);
   ndt_pose_with_covariance_pub_ =
     this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
@@ -431,9 +435,29 @@ void NDTScanMatcher::callback_sensor_points(
 
   pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_points_mapTF_ptr(
     new pcl::PointCloud<PointSource>);
+  pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_750_points_baselinkTF_ptr(
+    new pcl::PointCloud<PointSource>);
+  pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_1125_points_baselinkTF_ptr(
+    new pcl::PointCloud<PointSource>);
+  
+  ndt_ptr_->getRandom750Points(sensor_random_750_points_baselinkTF_ptr);
+  ndt_ptr_->getRandom1125Points(sensor_random_1125_points_baselinkTF_ptr);
+  
+  pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_750_points_mapTF_ptr(
+    new pcl::PointCloud<PointSource>);
+  pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_1125_points_mapTF_ptr(
+    new pcl::PointCloud<PointSource>);
+
   pcl::transformPointCloud(
     *sensor_points_baselinkTF_ptr, *sensor_points_mapTF_ptr, ndt_result.pose);
+  pcl::transformPointCloud(
+    *sensor_random_750_points_baselinkTF_ptr, *sensor_random_750_points_mapTF_ptr, ndt_result.pose);
+  pcl::transformPointCloud(
+    *sensor_random_1125_points_baselinkTF_ptr, *sensor_random_1125_points_mapTF_ptr, ndt_result.pose);
+
   publish_point_cloud(sensor_ros_time, map_frame_, sensor_points_mapTF_ptr);
+  publish_random_point_cloud(sensor_ros_time, map_frame_, sensor_random_750_points_mapTF_ptr, random_750_points_pub_);
+  publish_random_point_cloud(sensor_ros_time, map_frame_, sensor_random_1125_points_mapTF_ptr, random_1125_points_pub_);
 
   // whether use de-grounded points calculate score
   if (estimate_scores_for_degrounded_scan_) {
@@ -534,6 +558,18 @@ void NDTScanMatcher::publish_point_cloud(
   sensor_points_mapTF_msg.header.stamp = sensor_ros_time;
   sensor_points_mapTF_msg.header.frame_id = frame_id;
   sensor_aligned_pose_pub_->publish(sensor_points_mapTF_msg);
+}
+
+void NDTScanMatcher::publish_random_point_cloud(
+  const rclcpp::Time & sensor_ros_time, const std::string & frame_id,
+  const pcl::shared_ptr<pcl::PointCloud<PointSource>> & sensor_random_points_mapTF_ptr,
+  const std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>> random_points_pub)
+{
+  sensor_msgs::msg::PointCloud2 sensor_random_points_mapTF_msg;
+  pcl::toROSMsg(*sensor_random_points_mapTF_ptr, sensor_random_points_mapTF_msg);
+  sensor_random_points_mapTF_msg.header.stamp = sensor_ros_time;
+  sensor_random_points_mapTF_msg.header.frame_id = frame_id;
+  random_points_pub->publish(sensor_random_points_mapTF_msg);
 }
 
 void NDTScanMatcher::publish_marker(
