@@ -35,6 +35,8 @@
 #include <iomanip>
 #include <thread>
 
+#include <fstream>
+
 tier4_debug_msgs::msg::Float32Stamped make_float32_stamped(
   const builtin_interfaces::msg::Time & stamp, const float data)
 {
@@ -366,19 +368,135 @@ void NDTScanMatcher::callback_sensor_points(
     return;
   }
 
+  const auto exe_start_time_2 = std::chrono::system_clock::now();
   // perform ndt scan matching
   (*state_ptr_)["state"] = "Aligning";
+  
+  const auto exe_start_time_8 = std::chrono::system_clock::now();
   const Eigen::Matrix4f initial_pose_matrix =
     pose_to_matrix4f(interpolator.get_current_pose().pose.pose);
+  const auto exe_end_time_8 = std::chrono::system_clock::now();
+  const double exe_time_8 =
+    std::chrono::duration_cast<std::chrono::microseconds>(exe_end_time_8 - exe_start_time_8).count() /
+    1000.0;
+  static std::vector<double> data_8;
+  static int cnt_8 = 0;
+  cnt_8++;
+  if (exe_time_8 > 0 && cnt_8 > 100){
+    data_8.push_back(exe_time_8);
+    double ave = 0.0, var = 0.0;
+    for(const auto &x : data_8){
+      ave += x;
+      var += x * x;
+    }
+    ave /= data_8.size();
+    var = var / data_8.size() - ave * ave;
+    std::ofstream writing_file;
+    std::string filename = "/tmp/exe_time_8.txt";
+    writing_file.open(filename, std::ios::out);
+    writing_file << ave << ", " << var << std::endl;
+    writing_file.close();
+  }
+  
+  const auto exe_start_time_9 = std::chrono::system_clock::now();
   auto output_cloud = std::make_shared<pcl::PointCloud<PointSource>>();
   ndt_ptr_->align(*output_cloud, initial_pose_matrix);
+  const auto exe_end_time_9 = std::chrono::system_clock::now();
+  const double exe_time_9 =
+    std::chrono::duration_cast<std::chrono::microseconds>(exe_end_time_9 - exe_start_time_9).count() /
+    1000.0;
+  static std::vector<double> data_9;
+  static int cnt_9 = 0;
+  cnt_9++;
+  if (exe_time_9 > 0 && cnt_9 > 100){
+    data_9.push_back(exe_time_9);
+    double ave = 0.0, var = 0.0;
+    for(const auto &x : data_9){
+      ave += x;
+      var += x * x;
+    }
+    ave /= data_9.size();
+    var = var / data_9.size() - ave * ave;
+    std::ofstream writing_file;
+    std::string filename = "/tmp/exe_time_9.txt";
+    writing_file.open(filename, std::ios::out);
+    writing_file << ave << ", " << var << std::endl;
+    writing_file.close();
+  }
+  
+  const auto exe_start_time_10 = std::chrono::system_clock::now();
   const pclomp::NdtResult ndt_result = ndt_ptr_->getResult();
+  const auto exe_end_time_10 = std::chrono::system_clock::now();
+  const double exe_time_10 =
+    std::chrono::duration_cast<std::chrono::microseconds>(exe_end_time_10 - exe_start_time_10).count() /
+    1000.0;
+  static std::vector<double> data_10;
+  static int cnt_10 = 0;
+  cnt_10++;
+  if (exe_time_10 > 0 && cnt_10 > 100){
+    data_10.push_back(exe_time_10);
+    double ave = 0.0, var = 0.0;
+    for(const auto &x : data_10){
+      ave += x;
+      var += x * x;
+    }
+    ave /= data_10.size();
+    var = var / data_10.size() - ave * ave;
+    std::ofstream writing_file;
+    std::string filename = "/tmp/exe_time_10.txt";
+    writing_file.open(filename, std::ios::out);
+    writing_file << ave << ", " << var << std::endl;
+    writing_file.close();
+  }
+  
   (*state_ptr_)["state"] = "Sleeping";
+  const auto exe_end_time_2 = std::chrono::system_clock::now();
+  const double exe_time_2 =
+    std::chrono::duration_cast<std::chrono::microseconds>(exe_end_time_2 - exe_start_time_2).count() /
+    1000.0;
+  static std::vector<double> data_2;
+  static int cnt_2 = 0;
+  cnt_2++;
+  if (exe_time_2 > 0 && cnt_2 > 100){
+    data_2.push_back(exe_time_2);
+    double ave = 0.0, var = 0.0;
+    for(const auto &x : data_2){
+      ave += x;
+      var += x * x;
+    }
+    ave /= data_2.size();
+    var = var / data_2.size() - ave * ave;
+    std::ofstream writing_file;
+    std::string filename = "/tmp/exe_time_2.txt";
+    writing_file.open(filename, std::ios::out);
+    writing_file << ave << ", " << var << std::endl;
+    writing_file.close();
+  }
 
   const auto exe_end_time = std::chrono::system_clock::now();
   const double exe_time =
     std::chrono::duration_cast<std::chrono::microseconds>(exe_end_time - exe_start_time).count() /
     1000.0;
+
+  const double exe_time_1 = exe_time;
+  static std::vector<double> data_1;
+  static int cnt_1 = 0;
+  cnt_1++;
+  if (exe_time_1 > 0 && cnt_1 > 100){
+    data_1.push_back(exe_time_1);
+    double ave = 0.0, var = 0.0;
+    for(const auto &x : data_1){
+      ave += x;
+      var += x * x;
+    }
+    ave /= data_1.size();
+    var = var / data_1.size() - ave * ave;
+    std::ofstream writing_file;
+    std::string filename = "/tmp/exe_time_1.txt";
+    writing_file.open(filename, std::ios::out);
+    writing_file << ave << ", " << var << std::endl;
+    writing_file.close();
+  }
 
   const geometry_msgs::msg::Pose result_pose_msg = matrix4f_to_pose(ndt_result.pose);
   std::vector<geometry_msgs::msg::Pose> transformation_msg_array;
@@ -435,29 +553,29 @@ void NDTScanMatcher::callback_sensor_points(
 
   pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_points_mapTF_ptr(
     new pcl::PointCloud<PointSource>);
-  pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_750_points_baselinkTF_ptr(
-    new pcl::PointCloud<PointSource>);
-  pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_1125_points_baselinkTF_ptr(
-    new pcl::PointCloud<PointSource>);
+  // pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_750_points_baselinkTF_ptr(
+  //   new pcl::PointCloud<PointSource>);
+  // pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_1125_points_baselinkTF_ptr(
+  //   new pcl::PointCloud<PointSource>);
   
-  ndt_ptr_->getRandom750Points(sensor_random_750_points_baselinkTF_ptr);
-  ndt_ptr_->getRandom1125Points(sensor_random_1125_points_baselinkTF_ptr);
+  // ndt_ptr_->getRandom750Points(sensor_random_750_points_baselinkTF_ptr);
+  // ndt_ptr_->getRandom1125Points(sensor_random_1125_points_baselinkTF_ptr);
   
-  pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_750_points_mapTF_ptr(
-    new pcl::PointCloud<PointSource>);
-  pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_1125_points_mapTF_ptr(
-    new pcl::PointCloud<PointSource>);
+  // pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_750_points_mapTF_ptr(
+  //   new pcl::PointCloud<PointSource>);
+  // pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_random_1125_points_mapTF_ptr(
+  //   new pcl::PointCloud<PointSource>);
 
   pcl::transformPointCloud(
     *sensor_points_baselinkTF_ptr, *sensor_points_mapTF_ptr, ndt_result.pose);
-  pcl::transformPointCloud(
-    *sensor_random_750_points_baselinkTF_ptr, *sensor_random_750_points_mapTF_ptr, ndt_result.pose);
-  pcl::transformPointCloud(
-    *sensor_random_1125_points_baselinkTF_ptr, *sensor_random_1125_points_mapTF_ptr, ndt_result.pose);
+  // pcl::transformPointCloud(
+  //   *sensor_random_750_points_baselinkTF_ptr, *sensor_random_750_points_mapTF_ptr, ndt_result.pose);
+  // pcl::transformPointCloud(
+  //   *sensor_random_1125_points_baselinkTF_ptr, *sensor_random_1125_points_mapTF_ptr, ndt_result.pose);
 
   publish_point_cloud(sensor_ros_time, map_frame_, sensor_points_mapTF_ptr);
-  publish_random_point_cloud(sensor_ros_time, map_frame_, sensor_random_750_points_mapTF_ptr, random_750_points_pub_);
-  publish_random_point_cloud(sensor_ros_time, map_frame_, sensor_random_1125_points_mapTF_ptr, random_1125_points_pub_);
+  // publish_random_point_cloud(sensor_ros_time, map_frame_, sensor_random_750_points_mapTF_ptr, random_750_points_pub_);
+  // publish_random_point_cloud(sensor_ros_time, map_frame_, sensor_random_1125_points_mapTF_ptr, random_1125_points_pub_);
 
   // whether use de-grounded points calculate score
   if (estimate_scores_for_degrounded_scan_) {
