@@ -2,7 +2,7 @@
   <arg name="input_topic_name" default="/sensing/lidar/top/pointcloud_raw"/>
   <arg name="output_topic_name" default="/sensing/lidar/top/random_downsample_filter/pointcloud"/>
 
-  <arg name="sample_num" default="1500"/>
+  <arg name="sample_num" default="1000"/>
   <arg name="input_frame" default=""/>
   <arg name="output_frame" default="base_link"/>
 
