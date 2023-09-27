@@ -29,6 +29,10 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 #endif
 
+#include <pcl/filters/random_sample.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -112,6 +116,10 @@ NDTScanMatcher::NDTScanMatcher()
   ndt_base_frame_ = this->declare_parameter("ndt_base_frame", ndt_base_frame_);
   RCLCPP_INFO(get_logger(), "ndt_base_frame_id: %s", ndt_base_frame_.c_str());
 
+  // clang-format off
+  this->declare_parameter("csv_tabele_path", "/home/tatsuhiroikebe/rosbag/big_env/rosbag-replay-simulation/converged-radius-table-search-3/converged_radius_table.csv");
+  // clang-format on
+
   pclomp::NdtParams ndt_params;
   ndt_params.trans_epsilon = this->declare_parameter<double>("trans_epsilon");
   ndt_params.step_size = this->declare_parameter<double>("step_size");
@@ -173,6 +181,9 @@ NDTScanMatcher::NDTScanMatcher()
     this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
       "regularization_pose_with_covariance", 100,
       std::bind(&NDTScanMatcher::callback_regularization_pose, this, std::placeholders::_1));
+  ekf_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+    "/localization/pose_twist_fusion_filter/pose", 1,
+    std::bind(&NDTScanMatcher::callback_ekf_pose, this, std::placeholders::_1));
 
   sensor_aligned_pose_pub_ =
     this->create_publisher<sensor_msgs::msg::PointCloud2>("points_aligned", 10);
@@ -232,6 +243,8 @@ NDTScanMatcher::NDTScanMatcher()
       this, &ndt_ptr_mtx_, ndt_ptr_, tf2_listener_module_, map_frame_, main_callback_group,
       state_ptr_);
   }
+
+  readConvergedRadiusTable();
 }
 
 void NDTScanMatcher::timer_diagnostic()
@@ -285,6 +298,77 @@ void NDTScanMatcher::timer_diagnostic()
   }
 }
 
+void NDTScanMatcher::readConvergedRadiusTable()
+{
+  auto csv = std::make_shared<std::ifstream>(this->get_parameter("csv_tabele_path").as_string());
+
+  if (!csv->is_open())
+    RCLCPP_ERROR(
+      this->get_logger(), "Could not open file: %s\n",
+      this->get_parameter("csv_tabele_path").as_string().c_str());
+
+  std::string line, field_str;
+  while (std::getline(*csv, line)) {
+    std::stringstream ss(line);
+    std::vector<std::string> field_vec;
+    while (std::getline(ss, field_str, ',')) {
+      field_vec.push_back(field_str);
+    }
+
+    std::map<std::string, double> field_map;
+    field_map.insert(std::make_pair("pose_x", std::stod(field_vec[0])));
+    field_map.insert(std::make_pair("pose_y", std::stod(field_vec[1])));
+    field_map.insert(std::make_pair("converge_radius", std::stod(field_vec[2])));
+
+    converged_radius_table_.push_back(field_map);
+  }
+
+  csv->close();
+}
+
+geometry_msgs::msg::PoseStamped NDTScanMatcher::findClosestPoseStamped(std_msgs::msg::Header target)
+{
+  auto target_time = target.stamp.nanosec;
+  auto copy_ekf_pose_queue = ekf_pose_queue_;
+
+  double duration_sec_old = 0;
+  while (!ekf_pose_queue_.empty()) {
+    auto ekf_pose_time = ekf_pose_queue_.front()->header.stamp.nanosec;
+    auto duration_sec_latest = fabs(target_time - ekf_pose_time);
+    if (duration_sec_old != 0) {
+      if (duration_sec_old < duration_sec_latest) {
+        ekf_pose_queue_.clear();
+        return *ekf_pose_queue_.front();
+      } else {
+        ekf_pose_queue_.pop_front();
+        return *copy_ekf_pose_queue.back();
+      }
+    }
+    duration_sec_old = duration_sec_latest;
+  }
+
+  return geometry_msgs::msg::PoseStamped();
+}
+
+double NDTScanMatcher::findClosestPoseAndIdentifyConvergenceRadius(
+  geometry_msgs::msg::PoseStamped target_pose)
+{
+  Eigen::Vector2d target_pose_mat(target_pose.pose.position.x, target_pose.pose.position.y);
+
+  std::vector<double> l2_norm_vec;
+  for (auto data : converged_radius_table_) {
+    Eigen::Vector2d reference_mat(data["pose_x"], data["pose_y"]);
+    l2_norm_vec.push_back((target_pose_mat - reference_mat).norm());
+  }
+
+  auto min_element_iter = std::min_element(l2_norm_vec.begin(), l2_norm_vec.end());
+  int min_index = std::distance(l2_norm_vec.begin(), min_element_iter);
+
+  RCLCPP_INFO(get_logger(), "Index: %d", min_index);
+
+  return converged_radius_table_[min_index]["converge_radius"];
+}
+
 void NDTScanMatcher::callback_initial_pose(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr)
 {
@@ -325,6 +409,11 @@ void NDTScanMatcher::callback_regularization_pose(
   regularization_pose_msg_ptr_array_.push_back(pose_conv_msg_ptr);
 }
 
+void NDTScanMatcher::callback_ekf_pose(geometry_msgs::msg::PoseStamped::ConstSharedPtr pose_msg_ptr)
+{
+  ekf_pose_queue_.push_back(pose_msg_ptr);
+}
+
 void NDTScanMatcher::callback_sensor_points(
   sensor_msgs::msg::PointCloud2::ConstSharedPtr sensor_points_sensorTF_msg_ptr)
 {
@@ -334,14 +423,38 @@ void NDTScanMatcher::callback_sensor_points(
   const auto exe_start_time = std::chrono::system_clock::now();
   const rclcpp::Time sensor_ros_time = sensor_points_sensorTF_msg_ptr->header.stamp;
 
+  auto pose = findClosestPoseStamped(sensor_points_sensorTF_msg_ptr->header);
+  auto converge_radius = findClosestPoseAndIdentifyConvergenceRadius(pose);
+
+  auto random_sampled_sensor_points_sensorTF_msg_ptr =
+    std::make_shared<sensor_msgs::msg::PointCloud2>(*sensor_points_sensorTF_msg_ptr);
+  if (converge_radius >= 0.5) {
+    pcl::PCLPointCloud2 pcl_cloud;
+    pcl_conversions::toPCL(*sensor_points_sensorTF_msg_ptr, pcl_cloud);
+    std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromPCLPointCloud2(pcl_cloud, *temp_cloud);
+
+    pcl::RandomSample<pcl::PointXYZ> random_sample;
+    random_sample.setInputCloud(temp_cloud);
+    random_sample.setSample(750);
+    std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> cloud_filtered(
+      new pcl::PointCloud<pcl::PointXYZ>);
+    random_sample.filter(*cloud_filtered);
+
+    pcl::PCLPointCloud2 pcl_cloud_filtered;
+    pcl::toPCLPointCloud2(*cloud_filtered, pcl_cloud_filtered);
+
+    pcl_conversions::fromPCL(pcl_cloud_filtered, *random_sampled_sensor_points_sensorTF_msg_ptr);
+  }
+
   // preprocess input pointcloud
   pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_points_sensorTF_ptr(
     new pcl::PointCloud<PointSource>);
   pcl::shared_ptr<pcl::PointCloud<PointSource>> sensor_points_baselinkTF_ptr(
     new pcl::PointCloud<PointSource>);
-  const std::string & sensor_frame = sensor_points_sensorTF_msg_ptr->header.frame_id;
+  const std::string & sensor_frame = random_sampled_sensor_points_sensorTF_msg_ptr->header.frame_id;
 
-  pcl::fromROSMsg(*sensor_points_sensorTF_msg_ptr, *sensor_points_sensorTF_ptr);
+  pcl::fromROSMsg(*random_sampled_sensor_points_sensorTF_msg_ptr, *sensor_points_sensorTF_ptr);
   transform_sensor_measurement(
     sensor_frame, base_frame_, sensor_points_sensorTF_ptr, sensor_points_baselinkTF_ptr);
   ndt_ptr_->setInputSource(sensor_points_baselinkTF_ptr);

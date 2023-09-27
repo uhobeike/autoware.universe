@@ -90,6 +90,7 @@ private:
     geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr pose_conv_msg_ptr);
   void callback_regularization_pose(
     geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr pose_conv_msg_ptr);
+  void callback_ekf_pose(geometry_msgs::msg::PoseStamped::ConstSharedPtr pose_msg_ptr);
 
   geometry_msgs::msg::PoseWithCovarianceStamped align_using_monte_carlo(
     const std::shared_ptr<NormalDistributionsTransform> & ndt_ptr,
@@ -129,10 +130,15 @@ private:
 
   void timer_diagnostic();
 
+  void readConvergedRadiusTable();
+  geometry_msgs::msg::PoseStamped findClosestPoseStamped(std_msgs::msg::Header target);
+  double findClosestPoseAndIdentifyConvergenceRadius(geometry_msgs::msg::PoseStamped target_pose);
+
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sensor_points_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
     regularization_pose_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ekf_pose_sub_;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr sensor_aligned_pose_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr no_ground_points_aligned_pose_pub_;
@@ -206,6 +212,9 @@ private:
   // cspell: ignore degrounded
   bool estimate_scores_for_degrounded_scan_;
   double z_margin_for_ground_removal_;
+
+  std::vector<std::map<std::string, double>> converged_radius_table_;
+  std::deque<geometry_msgs::msg::PoseStamped::ConstSharedPtr> ekf_pose_queue_;
 };
 
 #endif  // NDT_SCAN_MATCHER__NDT_SCAN_MATCHER_CORE_HPP_
